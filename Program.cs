@@ -7,27 +7,9 @@ namespace timeclock
     {
         static void Main(string[] args)
         {
-
-            /* Components:
-             * Dashboard: Shows current time, clock status, last clockin time, hours worked so far
-             * Clock in, save clock-in time
-             * Get last clock-in time
-             * Get current time
-             * Calculate time worked since clock-in
-             * Clock out, save clock-out time
-             * Generate report
-            */
+            // Check for command line arguments
             if (args.Length > 0)
             {
-                /*
-                Console.WriteLine("Arguments:");
-
-                foreach(Object obj in args)
-                {
-                    Console.WriteLine(obj);
-                }
-                */
-
                 foreach (string arg in args)
                 {
                     switch (arg.ToLower())
@@ -54,67 +36,115 @@ namespace timeclock
                 Report();
             }
         }
-        
 
-        
 
-        public static bool GetClockStatus()
+
+
+        public static void ClockIn()
         {
-            bool clockedIn = false;
-            string line = null;
-            try
+            if (GetClockStatus())
             {
-                string path = GetPath("/clockstatus.txt");
-
-                // Open
-                StreamReader sr = new StreamReader(path);
-
-                // Read
-                line = sr.ReadLine();
-
-                // Close
-                sr.Close();
-            }
-            catch (Exception e)
-            {
-                Console.WriteLine("Exception: " + e.Message);
+                Console.WriteLine("\r\nYou are already clocked in.");
+                goto End;
             }
 
-            switch (line)
-            {
-                case ("false"):
-                    clockedIn = false;
-                    break;
-                case ("true"):
-                    clockedIn = true;
-                    break;
-            }
-            return clockedIn;
+            // Save clock-in time
+            WriteTime("/clockin.txt", DateTime.Now.ToString(), false);
+            SetClockStatus("in");
+
+        End:;
         }
 
 
 
 
-        public static void ResetTotal()
+        public static void ClockOut()
         {
-            // Overwrite existing data
+            if (!GetClockStatus())
+            {
+                Console.WriteLine("\r\nYou are already clocked out.");
+                goto End;
+            }
+
+            // Get clock-out time
+            WriteTime("/clockout.txt", DateTime.Now.ToString(), false);
+            SetClockStatus("out");
+
+            // Print clockout report
+            DateTime clockin = ReadTime("/clockin.txt");
+            DateTime clockout = ReadTime("/clockout.txt");
+            TimeSpan duration = clockout - clockin;
+            Console.WriteLine("Time logged during this session: {0} hours.", duration.TotalHours.ToString("N2"));
+
+            // Save to master record:
+            WriteTime("/record.txt", duration.ToString(), true);
+        End:;
+        }
+
+
+
+
+        public static void SetClockStatus(string setOption)
+        {
+            string clockStatus = null;
+
+            switch (setOption)
+            {
+                case ("in"):
+                    clockStatus = "true";
+                    break;
+                case ("out"):
+                    clockStatus = "false";
+                    break;
+            }
+
             try
             {
-                string overwrite = "";
+                string path = GetPath("/clockstatus.txt");
 
-                string path = GetPath("/record.txt");
-                //Write a line of text. Overwrite existing data
-                File.WriteAllText(path, overwrite);
+                File.WriteAllText(path, clockStatus);
             }
             catch (Exception e)
             {
                 Console.WriteLine("Exception: " + e.Message);
+                Environment.Exit(0);
             }
             finally
             {
-                Console.WriteLine("\r\nTime log reset.");
-                Total();
+                Console.WriteLine("\r\nYou have been clocked {0}.", setOption);
             }
+        }
+
+
+
+
+        public static bool GetClockStatus()
+        {
+            string line = null;
+            string path = GetPath("/clockstatus.txt");
+
+            try
+            {
+                StreamReader sr = new StreamReader(path);
+
+                line = sr.ReadLine();
+
+                sr.Close();
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine("Exception: " + e.Message);
+                Environment.Exit(0);
+            }
+
+            switch (line)
+            {
+                case ("false"):
+                    return false;
+                case ("true"):
+                    return true;
+            }
+            return false;
         }
 
 
@@ -122,22 +152,18 @@ namespace timeclock
 
         public static void Total()
         {
-            string line = null;
+            string line;
+            string path = GetPath("/record.txt");
+            int sessionCounter = -1;
             TimeSpan totalTime = new TimeSpan(0);
-            TimeSpan currentTime = new TimeSpan(0);
-            int sessionCounter = 0;
-
+            TimeSpan currentTime;
+            
             try
             {
-                string path = GetPath("/record.txt");
-
-                // Open
                 StreamReader sr = new StreamReader(path);
 
-                //Read the first line of text
                 line = sr.ReadLine();
 
-                // Read
                 while (line != null)
                 {
                     sessionCounter++;
@@ -148,13 +174,23 @@ namespace timeclock
 
                 Console.WriteLine("\r\nTotal hours worked: {0} hours over {1} sessions.", totalTime.TotalHours.ToString("N2"), sessionCounter);
 
-                // Close
                 sr.Close();
             }
             catch (Exception e)
             {
                 Console.WriteLine("Exception: " + e.Message);
+                Environment.Exit(0);
             }
+        }
+
+
+
+
+        public static void ResetTotal()
+        {
+            string overwrite = "0";
+            WriteTime("/record.txt", overwrite, false);
+            Console.WriteLine("\r\nTime log reset.");
         }
 
 
@@ -162,11 +198,11 @@ namespace timeclock
 
         public static void Report()
         {
+            DateTime clockin = ReadTime("/clockin.txt");
+            DateTime clockout = ReadTime("/clockout.txt");
+            TimeSpan totalTime = DateTime.Now - clockin;
             bool clockedIn = GetClockStatus();
-            if (!clockedIn)
-            {
-                Console.WriteLine("");
-            }
+
             switch (clockedIn)
             {
                 case (true):
@@ -176,65 +212,16 @@ namespace timeclock
             }
 
         ClockedIn:
-            DateTime currentTime = DateTime.Now;
-            DateTime clockinTime = GetLastClockin();
-            TimeSpan totalTime = currentTime - clockinTime;
             Console.WriteLine("\r\nYou are clocked in.");
-            PrintLastClockin();
+            Console.WriteLine("You last clocked in on {0} at {1}.", clockin.ToString("MM/dd"), clockin.ToString("HH:mm"));
             Console.WriteLine("You have been working for {0} hours.", totalTime.TotalHours.ToString("N2"));
             goto End;
 
         ClockedOut:
-            // Get clockin
-            string clockinString = null;
             Console.WriteLine("\r\nYou are clocked out.");
-            try
-            {
-                string path = GetPath("/clockin.txt");
-                // Open
-                StreamReader sr = new StreamReader(path);
-
-                //Read & display
-                clockinString = sr.ReadLine();
-                Console.WriteLine("You last clocked in on {0}.", clockinString);
-
-                // Close
-                sr.Close();
-            }
-            catch (Exception e)
-            {
-                Console.WriteLine("Exception: " + e.Message);
-            }
-
-            // Parse clockin
-            DateTime clockin = Convert.ToDateTime(clockinString);
-
-            // Get clockout
-            string clockoutString = null;
-            try
-            {
-                string path = GetPath("/clockout.txt");
-                // Open
-                StreamReader sr = new StreamReader(path);
-
-                //Read & display
-                clockoutString = sr.ReadLine();
-                Console.WriteLine("You last clocked out on {0}.", clockoutString);
-
-                // Close
-                sr.Close();
-            }
-            catch (Exception e)
-            {
-                Console.WriteLine("Exception: " + e.Message);
-            }
-
-            // Parse clockout
-            DateTime clockout = Convert.ToDateTime(clockoutString);
-
-            // Calculate difference
-            TimeSpan duration = clockout - clockin;
-            Console.WriteLine("Time logged during this session: {0}", duration);
+            Console.WriteLine("You last clocked in on {0} at {1}.", clockin.ToString("MM/dd"), clockin.ToString("HH:mm"));
+            Console.WriteLine("You last clocked out on {0} at {1}.", clockout.ToString("MM/dd"), clockout.ToString("HH:mm"));
+            Console.WriteLine("Time logged during this session: {0} hours.", (clockout - clockin).TotalHours.ToString("N2"));
 
         End:;
         }
@@ -242,234 +229,48 @@ namespace timeclock
 
 
 
-        public static void TimeTally()
+        public static DateTime ReadTime(string path)
         {
-            // Get clockin
-            string clockinString = null;
+            string line;
+            DateTime time = new DateTime(0);
+
             try
             {
-                string path = GetPath("/clockin.txt");
+                string functionPath = GetPath(path);
 
-                // Open
-                StreamReader sr = new StreamReader(path);
-
-                //Read & display
-                clockinString = sr.ReadLine();
-
-                // Close
+                StreamReader sr = new StreamReader(functionPath);
+                line = sr.ReadLine();
+                time = Convert.ToDateTime(line);
                 sr.Close();
             }
             catch (Exception e)
             {
                 Console.WriteLine("Exception: " + e.Message);
+                Environment.Exit(0);
             }
 
-            // Parse clockin
-            DateTime clockin = Convert.ToDateTime(clockinString);
+            return time;
+        }
 
-            // Get clockout
-            string clockoutString = null;
+
+
+
+        public static void WriteTime(string path, string input, bool append)
+        {
             try
             {
-                string path = GetPath("/clockout.txt");
+                string functionPath = GetPath(path);
 
-                // Open
-                StreamReader sr = new StreamReader(path);
-
-                //Read & display
-                clockoutString = sr.ReadLine();
-
-                // Close
-                sr.Close();
-            }
-            catch (Exception e)
-            {
-                Console.WriteLine("Exception: " + e.Message);
-            }
-
-            // Parse clockout
-            DateTime clockout = Convert.ToDateTime(clockoutString);
-
-            // Calculate difference
-            TimeSpan duration = clockout - clockin;
-            Console.WriteLine("Time logged during this session: {0}", duration);
-
-            // Save to master record:
-
-            try
-            {
-                string path = GetPath("/record.txt");
-
-                //Pass the filepath and filename to the StreamWriter Constructor
-                StreamWriter sw = new StreamWriter(path, true);
-
-                //Write a line of text
-                sw.WriteLine(duration);
-
-                //Close the file
+                StreamWriter sw = new StreamWriter(functionPath, append);
+                sw.WriteLine(input);
                 sw.Close();
             }
             catch (Exception e)
             {
                 Console.WriteLine("Exception: " + e.Message);
-            }
-            finally
-            {
-                Console.WriteLine("Time successfully logged.");
+                Environment.Exit(0);
             }
         }
-
-
-
-
-        public static void ClockOut()
-        {
-            bool clockedIn = GetClockStatus();
-            if (clockedIn == false)
-            {
-                Console.WriteLine("\r\nYou are already clocked out.");
-                PrintLastClockout();
-                goto End;
-            }
-
-            // Get clock-out time
-            try
-            {
-                string path = GetPath("/clockout.txt");
-
-                string clockoutString = DateTime.Now.ToString("MM/dd/yyyy HH:mm:ss");
-
-                //Write a line of text. Overwrite existing data
-                File.WriteAllText(path, clockoutString);
-            }
-            catch (Exception e)
-            {
-                Console.WriteLine("Exception: " + e.Message);
-            }
-
-            // Update clock status
-            try
-            {
-                string path = GetPath("/clockstatus.txt");
-
-                string clockStatus = "false";
-
-                File.WriteAllText(path, clockStatus);
-            }
-            catch (Exception e)
-            {
-                Console.WriteLine("Exception: " + e.Message);
-            }
-            finally
-            {
-                Console.WriteLine("\r\nYou have been clocked out.");
-            }
-            TimeTally();
-        End:;
-        }
-
-
-
-
-        public static void ClockIn()
-        {
-            bool clockedIn = GetClockStatus();
-            if (clockedIn == true)
-            {
-                Console.WriteLine("\r\nYou are already clocked in.");
-                PrintLastClockin();
-                goto End;
-            }
-
-            // Save clock-in time
-            try
-            {
-                string path = GetPath("/clockin.txt");
-
-                string clockin = DateTime.Now.ToString("MM/dd/yyyy HH:mm:ss");
-
-                //Write a line of text. Overwrite existing data
-                File.WriteAllText(path, clockin);
-            }
-            catch (Exception e)
-            {
-                Console.WriteLine("Exception: " + e.Message);
-            }
-
-            // Update clock status
-            try
-            {
-                string path = GetPath("/clockstatus.txt");
-
-                string clockStatus = "true";
-
-                File.WriteAllText(path, clockStatus);
-            }
-            catch (Exception e)
-            {
-                Console.WriteLine("Exception: " + e.Message);
-            }
-            finally
-            {
-                Console.WriteLine("\r\nYou are now clocked in.");
-            }
-        End:;
-        }
-
-
-
-
-        public static void PrintLastClockout()
-        {
-            string line;
-            DateTime lastClockOut;
-            try
-            {
-                string path = GetPath("/clockout.txt");
-
-                StreamReader sr = new StreamReader(path);
-
-                line = sr.ReadLine();
-                lastClockOut = Convert.ToDateTime(line);
-                Console.WriteLine("You last clocked out on {0} at {1}.", lastClockOut.ToString("MM/dd"), lastClockOut.ToString("HH:mm"));
-
-                sr.Close();
-            }
-            catch (Exception e)
-            {
-                Console.WriteLine("Exception: " + e.Message);
-            }
-        }
-
-
-
-
-        public static DateTime GetLastClockin()
-        {
-            string line;
-            DateTime lastClockIn = new DateTime(0);
-            try
-            {
-                string path = GetPath("/clockin.txt");
-
-                // Open
-                StreamReader sr = new StreamReader(path);
-
-                //Read & display
-                line = sr.ReadLine();
-                lastClockIn = Convert.ToDateTime(line);
-
-                // Close
-                sr.Close();
-            }
-            catch (Exception e)
-            {
-                Console.WriteLine("Exception: " + e.Message);
-            }
-
-            return lastClockIn;
-        }
-
 
 
 
@@ -479,34 +280,6 @@ namespace timeclock
             string path2 = AppDomain.CurrentDomain.BaseDirectory;
             string fullpath = string.Format("{0}{1}", path2, path);
             return fullpath;
-        }
-
-
-
-
-        public static void PrintLastClockin()
-        {
-            string line;
-            DateTime lastClockIn;
-            try
-            {
-                string path = GetPath("/clockin.txt");
-
-                // Open
-                StreamReader sr = new StreamReader(path);
-
-                //Read & display
-                line = sr.ReadLine();
-                lastClockIn = Convert.ToDateTime(line);
-                Console.WriteLine("You last clocked in on {0} at {1}.", lastClockIn.ToString("MM/dd"), lastClockIn.ToString("HH:mm"));
-
-                // Close
-                sr.Close();
-            }
-            catch (Exception e)
-            {
-                Console.WriteLine("Exception: " + e.Message);
-            }
         }
     }
 }
