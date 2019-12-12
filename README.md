@@ -4,7 +4,7 @@ A small command line utility used for tracking work hours.
 <br>
 
 ## About
-I downloaded Mora for my Mac for the same purpose, but wasn't able to get it installed, so I wrote this instead. It's pretty unsophisticated for now, but it works perfectly for what I need.
+I downloaded Moro for my Mac for the same purpose, but wasn't able to get it installed, so I wrote this instead. It's pretty unsophisticated for now, but it works perfectly for what I need.
 <br>
 <br>
 
