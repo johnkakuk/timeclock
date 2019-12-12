@@ -57,9 +57,9 @@ In order to use this utility properly, console commands need to be provided for.
 4. If using bash, update/create the .bash_profile file. Not sure why it's needed, but it is.<br>
    `$ nano ~/.bash_profile`<br>
    New information:<br>
-   `if [ -f ~/.bashrc ]; then`
-   `   . ~/.bashrc`
-   `fi`
+   `if [ -f ~/.bashrc ]; then`<br>
+   `   . ~/.bashrc`<br>
+   `fi`<br><br>
 
 ## Upcoming Features/Requirements
 ### Script to Add Console Commands
