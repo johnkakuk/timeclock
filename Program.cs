@@ -45,14 +45,12 @@ namespace timeclock
             if (GetClockStatus())
             {
                 Console.WriteLine("\r\nYou are already clocked in.");
-                goto End;
+                return;
             }
 
             // Save clock-in time
             WriteTime("/clockin.txt", DateTime.Now.ToString(), false);
             SetClockStatus("in");
-
-        End:;
         }
 
 
@@ -63,7 +61,7 @@ namespace timeclock
             if (!GetClockStatus())
             {
                 Console.WriteLine("\r\nYou are already clocked out.");
-                goto End;
+                return;
             }
 
             // Get clock-out time
@@ -78,7 +76,6 @@ namespace timeclock
 
             // Save to master record:
             WriteTime("/record.txt", duration.ToString(), true);
-        End:;
         }
 
 
@@ -103,15 +100,12 @@ namespace timeclock
                 string path = GetPath("/clockstatus.txt");
 
                 File.WriteAllText(path, clockStatus);
+                Console.WriteLine("\r\nYou have been clocked {0}.", setOption);
             }
             catch (Exception e)
             {
                 Console.WriteLine("Exception: " + e.Message);
                 Environment.Exit(0);
-            }
-            finally
-            {
-                Console.WriteLine("\r\nYou have been clocked {0}.", setOption);
             }
         }
 
@@ -126,9 +120,7 @@ namespace timeclock
             try
             {
                 StreamReader sr = new StreamReader(path);
-
                 line = sr.ReadLine();
-
                 sr.Close();
             }
             catch (Exception e)
@@ -137,12 +129,9 @@ namespace timeclock
                 Environment.Exit(0);
             }
 
-            switch (line)
+            if (line == "true")
             {
-                case ("false"):
-                    return false;
-                case ("true"):
-                    return true;
+                return true;
             }
             return false;
         }
@@ -206,24 +195,17 @@ namespace timeclock
             switch (clockedIn)
             {
                 case (true):
-                    goto ClockedIn;
+                    Console.WriteLine("\r\nYou are clocked in.");
+                    Console.WriteLine("You last clocked in on {0} at {1}.", clockin.ToString("MM/dd"), clockin.ToString("HH:mm"));
+                    Console.WriteLine("You have been working for {0} hours.", totalTime.TotalHours.ToString("N2"));
+                    break;
                 case (false):
-                    goto ClockedOut;
+                    Console.WriteLine("\r\nYou are clocked out.");
+                    Console.WriteLine("You last clocked in on {0} at {1}.", clockin.ToString("MM/dd"), clockin.ToString("HH:mm"));
+                    Console.WriteLine("You last clocked out on {0} at {1}.", clockout.ToString("MM/dd"), clockout.ToString("HH:mm"));
+                    Console.WriteLine("Time logged during this session: {0} hours.", (clockout - clockin).TotalHours.ToString("N2"));
+                    break;
             }
-
-        ClockedIn:
-            Console.WriteLine("\r\nYou are clocked in.");
-            Console.WriteLine("You last clocked in on {0} at {1}.", clockin.ToString("MM/dd"), clockin.ToString("HH:mm"));
-            Console.WriteLine("You have been working for {0} hours.", totalTime.TotalHours.ToString("N2"));
-            goto End;
-
-        ClockedOut:
-            Console.WriteLine("\r\nYou are clocked out.");
-            Console.WriteLine("You last clocked in on {0} at {1}.", clockin.ToString("MM/dd"), clockin.ToString("HH:mm"));
-            Console.WriteLine("You last clocked out on {0} at {1}.", clockout.ToString("MM/dd"), clockout.ToString("HH:mm"));
-            Console.WriteLine("Time logged during this session: {0} hours.", (clockout - clockin).TotalHours.ToString("N2"));
-
-        End:;
         }
 
 
@@ -277,9 +259,8 @@ namespace timeclock
 
         public static string GetPath(string path)
         {
-            string path2 = AppDomain.CurrentDomain.BaseDirectory;
-            string fullpath = string.Format("{0}{1}", path2, path);
-            return fullpath;
+            path = string.Format("{0}{1}", AppDomain.CurrentDomain.BaseDirectory, path);
+            return path;
         }
     }
 }
